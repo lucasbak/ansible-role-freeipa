@@ -1,0 +1,25 @@
+- name: Check Installation already exist
+  shell: test -f /etc/ipa/default.conf
+  register: freeipa_exist
+  ignore_errors: True
+
+- name: Execute setup command
+  when: freeipa_exist.rc == 1
+  shell: >
+    ipa-server-install -U \
+    -a '{{ipaadmin_password}}' -p '{{ipamanager_password}}' --hostname '{{inventory_hostname}}' \
+    --domain '{{ipaserver_domain}}' \
+    --ip-address {{ansible_ssh_host}} \
+    {% if idstart is defined %} --idstart={{idstart}} \ {% endif %}
+    {% if idmax is defined %} --idmax={{idmax}} \ {% endif %}
+    -r '{{ipaserver_realm}}' \
+    {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --setup-dns {% endif %} 
+    {% if ipaserver_auto_reverse is defined %} --auto-reverse \{% endif %}
+    {% if ipaserver_forwarders is defined %} --auto-forwarders {{ ipaserver_forwarders | join }} \ {% endif %}
+    {% if not services['NTP'] is defined %} --no-ntp \ {% endif %}
+    {% if security_ssl_external_ca is defined and security_ssl_external_ca %} --external-ca --ca-subject="{{ca_subject}}"
+    {% else %} --ca-cert-file={{ conf_dir }}/cacert.pem {% endif %}
+
+- name: Start IPA Service
+  systemd:
+    name: 

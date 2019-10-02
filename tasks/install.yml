@@ -1,0 +1,54 @@
+# Yum Packages
+- name: Install freeipa-server
+  yum:
+    name: freeipa-server
+    state: present
+  when: play is defined and play == 'server'
+
+- name: Install DNS
+  yum:
+    name: ipa-server-dns
+    state: present
+  when: services['BIND'] is defined and play is defined and play == 'server'
+
+- name: Install Client
+  yum:
+    name: ipa-client
+    state: present
+  when: play is defined and play == 'client'
+
+
+- name: Freeipa conf dir
+  file:
+    path: "{{conf_dir}}"
+    state: directory
+    mode: 0750
+
+
+# SSL Local File
+- name: Copy cacert.pem
+  copy:
+    remote_src: True
+    src: "{{ security_ssl_cacert_path }}"
+    dest: "{{ conf_dir }}/cacert.pem"
+  when: security_ssl_local
+
+- name: Copy key.pem
+  copy:
+    remote_src: True
+    src: "{{ security_ssl_cert_folder }}/{{inventory_hostname}}.key.pem"
+    dest: "{{ conf_dir }}/key.pem"
+  when: security_ssl_local
+
+# SSL Remote File
+- name: Copy cacert.pem
+  copy:
+    src: "{{ security_ssl_cacert_path }}"
+    dest: "{{ conf_dir }}/cacert.pem"
+  when: not security_ssl_local
+- name: Copy key.pem
+  copy:
+    src: "{{ security_ssl_cert_folder }}/{{inventory_hostname}}.key.pem"
+    dest: "{{ conf_dir }}/key.pem"
+  when: not security_ssl_local
+
