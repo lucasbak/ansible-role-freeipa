@@ -9,7 +9,7 @@
   yum:
     name: ipa-server-dns
     state: present
-  when: services['BIND'] is defined and play is defined and play == 'server'
+  when: (services | select('match', 'BIND') | list | count) == 1 and play is defined and play == 'server'
 
 - name: Install Client
   yum:

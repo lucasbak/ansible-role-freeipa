@@ -45,5 +45,8 @@
 
 - name: Add replica
   shell: >
-    ipa-replica-install -p '{{password}}' --server "{{groups['ipaserver'] | first}}" --domain "{{ ipaserver_domain }}" --realm "{{ipaserver_realm}}"
+    ipa-replica-install -p '{{password}}' --server "{{groups['ipaserver'] | first}}" --domain "{{ ipaserver_domain }}" --realm "{{ipaserver_realm}}" {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --setup-dns {% endif %} {% if ipaserver_no_forwarders is defined %} --no-forwarders {% endif %} {% if ipaserver_auto_reverse is defined %} --auto-reverse  {% endif %}{% if ipaserver_forwarders is defined %} --auto-forwarders {% endif %}
   when: replica_exist.rc == 1
+    
+   
+    
