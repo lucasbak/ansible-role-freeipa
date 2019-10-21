@@ -20,7 +20,3 @@
     {% if not services['NTP'] is defined %} --no-ntp \ {% endif %}
     {% if security_ssl_external_ca is defined and security_ssl_external_ca %} --external-ca --ca-subject="{{ca_subject}}"
     {% else %} --ca-cert-file={{ conf_dir }}/cacert.pem {% endif %}
-
-- name: Start IPA Service
-  systemd:
-    name: 
