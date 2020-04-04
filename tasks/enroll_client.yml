@@ -34,3 +34,8 @@
   shell: >
     echo '{{ipaadmin_password}}' | kinit admin ; ipa dnsrecord-add {{ipaserver_domain}} {{shortname}}  --a-rec {{ipadress}}
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined and dns_record_exist.rc == 1
+
+- name: Check DNS record exists for host (CLIENT)
+  shell: >
+    echo '{{ipaadmin_password}}' | kinit admin ; ipa dnsrecord-find {{ipaserver_domain}} {{shortname}}
+  when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined
