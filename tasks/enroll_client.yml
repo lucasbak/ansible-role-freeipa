@@ -1,6 +1,7 @@
 
 - name: Check CLIENT not setup
-  shell: ipa host-find "{{inventory_hostname }} "
+  shell: >
+    echo '{{ipaadmin_password}}' | kinit admin ; ipa host-find "{{inventory_hostname }} "
   register: client_exist
   delegate_to: "{{ groups['ipaserver'] | first }}"
   ignore_errors: True
@@ -8,13 +9,14 @@
 - name: Execute CLIENT setup command
   when: freeipa_exist.rc == 1
   shell: >
+    echo '{{ipaadmin_password}}' | kinit admin ;
     ipa-client-install -U \
     --server {{ groups['ipaserver'] | first}} \
     --realm '{{ipaserver_realm}}' -p admin \
     -w '{{ipaadmin_password}}' \
     --hostname '{{ inventory_hostname }}' \
     --domain '{{ipaserver_domain}}' \
-    {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --enable-dns-updates {% endif %} 
+    {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --enable-dns-updates {% endif %}  --force-join 
   when: client_exist.rc == 1
 
 
@@ -32,7 +34,7 @@
 
 - name: Add DNS record for host (CLIENT)
   shell: >
-    echo '{{ipaadmin_password}}' | kinit admin ; ipa dnsrecord-add {{ipaserver_domain}} {{shortname}}  --a-rec {{ipadress}}
+    echo '{{ipaadmin_password}}' | kinit admin ; ipa dnsrecord-add {{ipaserver_domain}} {{shortname}}  --a-ip-address {{ipadress}} --a-create-reverse
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined and dns_record_exist.rc == 1
 
 - name: Check DNS record exists for host (CLIENT)

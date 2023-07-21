@@ -1,5 +1,6 @@
 # *********** default config directory for freeipa (not tested when changed) ********
 conf_dir: /etc/freeipa/conf
+# ansible_python_interpreter: /usr/bin/python
 
 # *********** directory on the remote host where certs should be available   ********
 security_ssl_cert_folder: /home/ansible
