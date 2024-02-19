@@ -19,11 +19,12 @@
 
 - include_tasks: install.yml
 
+- include_tasks: enroll_client.yml
+  when: ((play is defined and play == 'client') or ((play is defined and play != 'client') and ((groups['ipaserver'] | first) !=  inventory_hostname )))
+
 - include_tasks: setup.yml
   when:  inventory_hostname  == (groups['ipaserver'] | first) and play is defined and play == 'server'
 
 - include_tasks: replication.yml
   when:  inventory_hostname  != (groups['ipaserver'] | first) and play is defined and play == 'server'
 
-- include_tasks: enroll_client.yml
-  when: play is defined and play == 'client'

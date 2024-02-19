@@ -4,7 +4,7 @@
   dnf:
     name: "@idm:DL1"
     state: present
-  when: (ansible_distribution == "RedHat" or ansible_distribution == "CentOS" or ansible_distribution == "Rocky" or ansible_distribution == "RedHat" or ansible_distribution == "AlmaLinux") and ansible_distribution_major_version >= '8'
+  when: ansible_distribution_major_version == '8' and ansible_distribution != "Ubuntu"
 
 - name: Install freeipa-server [redhat7]
   package:
@@ -17,7 +17,7 @@
     - ipa-client
   when: play is defined and play == 'server' and ansible_distribution == "CentOS" or ansible_distribution == "RedHat" and ansible_distribution_major_version < '8'
 
-- name: Install freeipa-server [redhat8]
+- name: Install freeipa-server [redhat8/9]
   package:
     state: present
     name: "{{item}}"
@@ -26,7 +26,7 @@
     - freeipa-server 
     - ipa-server-dns
     - ipa-client
-  when: (ansible_distribution == "RedHat" or ansible_distribution == "Rocky" or ansible_distribution == "AlmaLinux") and ansible_distribution_major_version >= '8' and play == 'server'
+  when: ansible_distribution_major_version >= '8' and ansible_distribution != "Ubuntu" and play == 'server'
 
 - name: Install freeipa-client [redhat7]
   package:
@@ -37,14 +37,14 @@
     - ipa-client
   when: (ansible_distribution == "CentOS" or ansible_distribution == "RedHat") and ansible_distribution_major_version < '8'
 
-- name: Install freeipa-client [redhat8]
+- name: Install freeipa-client [redhat8/9]
   package:
     state: present
     name: "{{item}}"
     use: dnf
   with_items: 
     - ipa-client
-  when: (ansible_distribution == "RedHat" or ansible_distribution == "Rocky" or ansible_distribution == "AlmaLinux") and ansible_distribution_major_version >= '8'
+  when: ansible_distribution_major_version >= '8' and ansible_distribution != "Ubuntu"
 
 - name: Install Free Ipa Client
   package:

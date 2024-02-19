@@ -1,7 +1,7 @@
 
 - name: Check CLIENT not setup
   shell: >
-    echo '{{ipaadmin_password}}' | kinit admin ; ipa host-find "{{inventory_hostname }} "
+    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa host-find "{{inventory_hostname }} "
   register: client_exist
   delegate_to: "{{ groups['ipaserver'] | first }}"
   ignore_errors: True
@@ -9,13 +9,14 @@
 - name: Execute CLIENT setup command
   when: freeipa_exist.rc == 1
   shell: >
-    echo '{{ipaadmin_password}}' | kinit admin ;
+    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ;
     ipa-client-install -U \
     --server {{ groups['ipaserver'] | first}} \
-    --realm '{{ipaserver_realm}}' -p admin \
+    --realm '{{ipaserver_realm}}' -p admin@{{ipaserver_realm}} \
     -w '{{ipaadmin_password}}' \
     --hostname '{{ inventory_hostname }}' \
     --domain '{{ipaserver_domain}}' \
+    --mkhomedir \
     {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --enable-dns-updates {% endif %}  --force-join 
   when: client_exist.rc == 1
 
@@ -27,17 +28,47 @@
 
 - name: Check DNS record exists for host (CLIENT)
   shell: >
-    echo '{{ipaadmin_password}}' | kinit admin ; ipa dnsrecord-find {{ipaserver_domain}} {{shortname}}
+    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnsrecord-find {{ipaserver_domain}} {{shortname}}
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined
   register: dns_record_exist
   ignore_errors: True
 
 - name: Add DNS record for host (CLIENT)
   shell: >
-    echo '{{ipaadmin_password}}' | kinit admin ; ipa dnsrecord-add {{ipaserver_domain}} {{shortname}}  --a-ip-address {{ipadress}} --a-create-reverse
+    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnsrecord-add {{ipaserver_domain}} {{shortname}}  --a-ip-address {{ipadress}} --a-create-reverse
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined and dns_record_exist.rc == 1
 
 - name: Check DNS record exists for host (CLIENT)
   shell: >
-    echo '{{ipaadmin_password}}' | kinit admin ; ipa dnsrecord-find {{ipaserver_domain}} {{shortname}}
+    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnsrecord-find {{ipaserver_domain}} {{shortname}}
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined
+
+- name: Disable DNS processing in NetworkManager
+  when: ipaserver_setup_default_resolv
+  copy:
+    dest: /etc/NetworkManager/conf.d/90-dns-none.conf
+    content: |
+      [main]
+      dns=none
+    owner: root
+    group: root
+    mode: '0644'
+  register: networmanager
+
+- name: Reload NetworkManager service
+  systemd:
+    name: NetworkManager
+    state: reloaded
+  when: networmanager is defined
+
+- name: Disable DNS processing in NetworkManager
+  when: ipaserver_setup_default_resolv
+  copy:
+    dest: /etc/resolv.conf
+    content: |
+      search {{ipaserver_domain}}
+      nameserver {{ ipaserver_setup_nameserver_resolv }}
+    owner: root
+    group: root
+    mode: '0644'
+  when: networmanager is defined

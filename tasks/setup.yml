@@ -16,9 +16,16 @@
     {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --setup-dns {% endif %} 
     {% if ipaserver_auto_reverse is defined and ipaserver_auto_reverse%} --auto-reverse  {% endif %}
     {% if ipaserver_no_forwarders is defined and ipaserver_no_forwarders%} --no-forwarders {% endif %}
-    {% if ipaserver_forwarders is defined and ipaserver_forwarders %} --auto-forwarders {% endif %}
+    {% if ipaserver_forwarders %} --auto-forwarders {% endif %}
     {% if ipaserver_allow_overlap is defined and ipaserver_allow_overlap %} --allow-zone-overlap {% endif %}
     
     {% if not services['NTP'] is defined %} --no-ntp \ {% endif %}
     {% if security_ssl_external_ca is defined and security_ssl_external_ca %} --external-ca --ca-subject="{{ca_subject}}"
     {% else %} --ca-cert-file={{ conf_dir }}/cacert.pem {% endif %}
+
+
+- name: Setup Revers DNS Zone
+  when: (freeipa_exist.rc == 1) and (ipaserver_auto_reverse is defined and ipaserver_auto_reverse) and (ipaserver_setup_dns is defined and ipaserver_setup_dns) 
+  shell: >
+    ipa dnszone-add {{reverse_zone}}.in-addr.arpa.
+
