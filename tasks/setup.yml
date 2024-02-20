@@ -27,5 +27,5 @@
 - name: Setup Revers DNS Zone
   when: (freeipa_exist.rc == 1) and (ipaserver_auto_reverse is defined and ipaserver_auto_reverse) and (ipaserver_setup_dns is defined and ipaserver_setup_dns) 
   shell: >
-    ipa dnszone-add {{reverse_zone}}.in-addr.arpa.
+   echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnszone-add {{reverse_zone}}.in-addr.arpa.
 

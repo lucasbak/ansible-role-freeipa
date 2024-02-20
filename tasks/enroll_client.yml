@@ -1,4 +1,34 @@
 
+- name: Disable DNS processing in NetworkManager
+  when: ipaserver_setup_default_resolv
+  copy:
+    dest: /etc/NetworkManager/conf.d/90-dns-none.conf
+    content: |
+      [main]
+      dns=none
+    owner: root
+    group: root
+    mode: '0644'
+  register: networmanager
+
+- name: Reload NetworkManager service
+  systemd:
+    name: NetworkManager
+    state: reloaded
+  when: networmanager is defined
+
+- name: Disable DNS processing in NetworkManager
+  when: ipaserver_setup_default_resolv
+  copy:
+    dest: /etc/resolv.conf
+    content: |
+      search {{ipaserver_domain}}
+      nameserver {{ ipaserver_setup_nameserver_resolv }}
+    owner: root
+    group: root
+    mode: '0644'
+  when: networmanager is defined
+
 - name: Check CLIENT not setup
   shell: >
     echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa host-find "{{inventory_hostname }} "
@@ -42,33 +72,3 @@
   shell: >
     echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnsrecord-find {{ipaserver_domain}} {{shortname}}
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined
-
-- name: Disable DNS processing in NetworkManager
-  when: ipaserver_setup_default_resolv
-  copy:
-    dest: /etc/NetworkManager/conf.d/90-dns-none.conf
-    content: |
-      [main]
-      dns=none
-    owner: root
-    group: root
-    mode: '0644'
-  register: networmanager
-
-- name: Reload NetworkManager service
-  systemd:
-    name: NetworkManager
-    state: reloaded
-  when: networmanager is defined
-
-- name: Disable DNS processing in NetworkManager
-  when: ipaserver_setup_default_resolv
-  copy:
-    dest: /etc/resolv.conf
-    content: |
-      search {{ipaserver_domain}}
-      nameserver {{ ipaserver_setup_nameserver_resolv }}
-    owner: root
-    group: root
-    mode: '0644'
-  when: networmanager is defined
