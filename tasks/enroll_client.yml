@@ -1,5 +1,5 @@
 
-- name: Disable DNS processing in NetworkManager
+- name: "[Enroll Client] - Disable DNS processing in NetworkManager"
   when: ipaserver_setup_default_resolv
   copy:
     dest: /etc/NetworkManager/conf.d/90-dns-none.conf
@@ -19,7 +19,7 @@
   when: networmanager is defined
   when: ansible_distribution != "Ubuntu"
 
-- name: Disable DNS processing in NetworkManager
+- name: "[Enroll Client] - Disable DNS processing in NetworkManager"
   when: ipaserver_setup_default_resolv
   copy:
     dest: /etc/resolv.conf
@@ -30,7 +30,6 @@
     group: root
     mode: '0644'
   when: networmanager is defined
-  
 
 - name: Check CLIENT not setup
   shell: >
@@ -39,7 +38,7 @@
   delegate_to: "{{ groups['ipaserver'] | first }}"
   ignore_errors: True
 
-- name: Execute CLIENT setup command
+- name: "[Enroll Client] - Execute CLIENT setup command"
   when: freeipa_exist.rc == 1
   shell: >
     echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ;
@@ -54,24 +53,24 @@
   when: client_exist.rc == 1
 
 
-- name: Get CLIENT shortname
+- name: "[Enroll Client] - Get CLIENT shortname"
   set_fact:
      shortname: "{{ inventory_hostname | regex_search('([a-z0-9]+)')}}"
      ipadress: "{{hostvars[inventory_hostname]['ansible_ssh_host']}}"
 
-- name: Check DNS record exists for host (CLIENT)
+- name: "[Enroll Client] - Check DNS record exists for host (CLIENT)"
   shell: >
     echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnsrecord-find {{ipaserver_domain}} {{shortname}}
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined
   register: dns_record_exist
   ignore_errors: True
 
-- name: Add DNS record for host (CLIENT)
+- name: "[Enroll Client] - Add DNS record for host (CLIENT)"
   shell: >
     echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnsrecord-add {{ipaserver_domain}} {{shortname}}  --a-ip-address {{ipadress}} --a-create-reverse
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined and dns_record_exist.rc == 1
 
-- name: Check DNS record exists for host (CLIENT)
+- name: "[Enroll Client] - Check DNS record exists for host (CLIENT)"
   shell: >
     echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnsrecord-find {{ipaserver_domain}} {{shortname}}
   when: ipaserver_setup_dns is defined and ipaserver_setup_dns and hostvars[inventory_hostname]['ansible_ssh_host'] is defined

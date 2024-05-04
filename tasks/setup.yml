@@ -23,13 +23,13 @@
     {% if security_ssl_external_ca is defined and security_ssl_external_ca %} --external-ca --ca-subject="{{ca_subject}}"
     {% else %} --ca-cert-file={{ conf_dir }}/cacert.pem {% endif %}
 
-- name: Setup Revers DNS Zone - check existence
+- name: "[DNS] - Setup Revers DNS Zone - check existence"
   shell: >
    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnszone-find {{reverse_zone}}.in-addr.arpa.
   register: dnsexists
   ignore_errors: True
 
-- name: Setup Revers DNS Zone - execute
+- name: "[DNS] - Setup Revers DNS Zone - execute"
   when: ((dnsexists.rc is defined) and (dnsexists.rc == 1)) and (ipaserver_auto_reverse is defined and ipaserver_auto_reverse) and (ipaserver_setup_dns is defined and ipaserver_setup_dns) 
   shell: >
    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnszone-add {{reverse_zone}}.in-addr.arpa.

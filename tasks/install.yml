@@ -1,12 +1,12 @@
 # Yum Packages
 
-- name: Enable FreeIpa Packages [redhat8]
+- name: "[Packages] - Enable FreeIpa Packages [redhat8]"
   dnf:
     name: "@idm:DL1"
     state: present
   when: ansible_distribution_major_version == '8' and ansible_distribution != "Ubuntu"
 
-- name: Install freeipa-server [redhat7]
+- name: "[Packages] - Install freeipa-server [redhat7]"
   package:
     state: present
     name: "{{item}}"
@@ -17,7 +17,7 @@
     - ipa-client
   when: play is defined and play == 'server' and ansible_distribution == "CentOS" or ansible_distribution == "RedHat" and ansible_distribution_major_version < '8'
 
-- name: Install freeipa-server [redhat8/9]
+- name: "[Packages] - Install freeipa-server [redhat8/9]"
   package:
     state: present
     name: "{{item}}"
@@ -28,7 +28,7 @@
     - ipa-client
   when: ansible_distribution_major_version >= '8' and ansible_distribution != "Ubuntu" and play == 'server'
 
-- name: Install freeipa-client [redhat7]
+- name: "[Packages] - Install freeipa-client [redhat7]"
   package:
     state: present
     name: "{{item}}"
@@ -37,7 +37,7 @@
     - ipa-client
   when: (ansible_distribution == "CentOS" or ansible_distribution == "RedHat") and ansible_distribution_major_version < '8'
 
-- name: Install freeipa-client [redhat8/9]
+- name: "[Packages] - Install freeipa-client [redhat8/9]"
   package:
     state: present
     name: "{{item}}"
@@ -46,7 +46,7 @@
     - ipa-client
   when: ansible_distribution_major_version >= '8' and ansible_distribution != "Ubuntu"
 
-- name: Install Free Ipa Client
+- name: "[Packages] - Install Free Ipa Client"
   package:
     state: present
     name: "{{item}}"
@@ -71,7 +71,7 @@
 #   when: play is defined and play == 'client'
 
 
-- name: Freeipa conf dir
+- name: "[Configure] - Freeipa conf dir"
   file:
     path: "{{conf_dir}}"
     state: directory
@@ -79,14 +79,14 @@
 
 
 # SSL Local File
-- name: Copy cacert.pem
+- name: "[Configure] - Copy cacert.pem"
   copy:
     remote_src: True
     src: "{{ security_ssl_cacert_path }}"
     dest: "{{ conf_dir }}/cacert.pem"
   when: security_ssl_local
 
-- name: Copy key.pem
+- name: "[Configure] - Copy key.pem"
   copy:
     remote_src: True
     src: "{{ security_ssl_cert_folder }}/{{inventory_hostname}}.key.pem"
@@ -94,7 +94,7 @@
   when: security_ssl_local
 
 # SSL Remote File
-- name: Copy cacert.pem
+- name: "[Configure] - Copy cacert.pem"
   copy:
     src: "{{ security_ssl_cacert_path }}"
     dest: "{{ conf_dir }}/cacert.pem"
