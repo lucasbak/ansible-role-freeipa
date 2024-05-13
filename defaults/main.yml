@@ -10,7 +10,8 @@ security_ssl_local: True     # by default we consider the certs are on the remot
 # *********** create iptables rules when it is enabled ********
 iptables: False
 ipaserver_setup_default_resolv: False
-
+freeipa_srv_nameserver_address: 127.0.0.1
+ipaserver_setup_disable_default_dns: False
 # *********** identities management ********
 manage_identities: True
 identities:

@@ -53,5 +53,50 @@
     --auto-reverse  {% endif %}{% if ipaserver_forwarders %} --auto-forwarders {% endif %}
   when: replica_exist.rc == 1
 
-   
+- name: Disable DNS processing in NetworkManager
+  copy:
+    dest: /etc/NetworkManager/conf.d/90-dns-none.conf
+    content: |
+      [main]
+      dns=none
+    owner: root
+    group: root
+    mode: '0644'
+  register: networmanager
+  when: ansible_distribution != "Ubuntu" and not ipaserver_setup_default_resolv and ipaserver_setup_disable_default_dns
+
+
+- name: "[DNS] - configure addresses"
+  set_fact:
+    adresses: "{{ ipaserver_setup_nameserver_resolv }},{{freeipa_srv_nameserver_address}}"
+  when: freeipa_srv_nameserver_address != "127.0.0.1"
+
+- name: "[DNS] - Find files with 'ipa' in name"
+  set_fact:
+    adresses: "{{ ipaserver_setup_nameserver_resolv }}"
+  when: freeipa_srv_nameserver_address == "127.0.0.1"
+
+- name: "[DNS] - Override default conf"
+  copy:
+    dest: /etc/NetworkManager/conf.d/90-dns-none.conf
+    content: |
+      [main]
+      dns=default
+
+      [global-dns]
+      searches={{ipaserver_domain}}
+
+      [global-dns-domain-*]
+      servers={{adresses}}
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_distribution != "Ubuntu" and ipaserver_setup_default_resolv
+
+
+- name: "[DNS] - Reload NetworkManager service"
+  systemd:
+    name: NetworkManager
+    state: reloaded
+  when: ansible_distribution != "Ubuntu" and ipaserver_setup_default_resolv 
     

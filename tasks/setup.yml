@@ -34,3 +34,57 @@
   shell: >
    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnszone-add {{reverse_zone}}.in-addr.arpa.
 
+# override freeipa installer file
+# - name: "[DNS] - Get FreeIPA installer file "
+#   shell:
+#     dest: /etc/NetworkManager/conf.d/90-dns-none.conf
+#     content: |
+#       [main]
+#       dns=none
+#     owner: root
+#     group: root
+#     mode: '0644'
+#   register: networmanager
+#   when: ansible_distribution != "Ubuntu" and ipaserver_setup_default_resolv
+
+- name: "[DNS] - Find files with 'ipa' in name"
+  find:
+    paths: /etc/NetworkManager/conf.d
+    patterns: "*ipa*"
+  register: ipa_files
+
+- name: "[DNS] - Override FreeIPA NetworkManager Conf"
+  copy:
+    dest: "{{item.path}}"
+    content: |
+      [main]
+      dns=default
+
+      [global-dns]
+      searches={{ipaserver_domain}}
+
+      [global-dns-domain-*]
+      servers=127.0.0.1,{{freeipa_srv_nameserver_address}}
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ ipa_files.files }}"
+  when: ansible_distribution != "Ubuntu" and ipaserver_setup_default_resolv and "{{freeipa_srv_nameserver_address}}" != "127.0.0.1"
+
+- name: "[DNS] - Reload NetworkManager service"
+  systemd:
+    name: NetworkManager
+    state: reloaded
+  when: ansible_distribution != "Ubuntu" and ipaserver_setup_default_resolv
+
+# useless as FreeIPA overrides the resolv.conf
+# - name: "[DNS] - Write default Nameserver in resolv.conf"
+#   when: ipaserver_setup_default_resolv
+#   copy:
+#     dest: /etc/resolv.conf
+#     content: |
+#       search {{ipaserver_domain}}
+#       nameserver {{freeipa_srv_nameserver_address}}
+#     owner: root
+#     group: root
+#     mode: '0644'
