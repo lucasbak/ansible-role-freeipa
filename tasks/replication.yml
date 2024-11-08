@@ -48,8 +48,8 @@
     ipa-replica-install -p '{{password}}' --server "{{groups['ipaserver'] | first}}" --domain "{{ ipaserver_domain }}"  \ 
     --realm "{{ipaserver_realm}}" \
     {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} \
-    --setup-dns {% endif %} {% if ipaserver_no_forwarders is defined %} \
-    --no-forwarders {% endif %} {% if ipaserver_auto_reverse is defined %} \
+    --setup-dns {% endif %} {% if ipaserver_no_forwarders %} \
+    --no-forwarders {% endif %} {% if ipaserver_auto_reverse %} \
     --auto-reverse  {% endif %}{% if ipaserver_forwarders %} --auto-forwarders {% endif %}
   when: replica_exist.rc == 1
 

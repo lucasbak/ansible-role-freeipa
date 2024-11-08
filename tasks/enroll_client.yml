@@ -1,3 +1,6 @@
+- name: debug
+  debug:
+    msg: "Enroll Client: {{ ansible_distribution}}"
 - name: Disable DNS processing in NetworkManager
   copy:
     dest: /etc/NetworkManager/conf.d/90-dns-none.conf
@@ -45,11 +48,15 @@
     state: reloaded
   when: ansible_distribution != "Ubuntu" and ipaserver_setup_default_resolv
 
+- name: debug networmanager
+  debug:
+    msg: "Should restart Network Manager {{networmanager}}"
+
 - name: "[Enroll Client] - Restart NetworkManager"
   service:
     name: NetworkManager
     state: restarted
-  when: networmanager is defined
+  when: networmanager is defined and networmanager.changed
 
 
 - name: "[Enroll Client] - Check CLIENT not setup"
@@ -59,8 +66,11 @@
   delegate_to: "{{ groups['ipaserver'] | first }}"
   ignore_errors: True
 
+- name:
+  debug:
+    msg: "IPA Client is setup: {{ client_exist.rc }}"
+
 - name: "[Enroll Client] - Execute CLIENT setup command"
-  when: freeipa_exist.rc == 1
   shell: >
     echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ;
     ipa-client-install -U \
@@ -71,7 +81,7 @@
     --domain '{{ipaserver_domain}}' \
     --mkhomedir \
     {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --enable-dns-updates {% endif %}  --force-join 
-  when: client_exist.rc == 1
+  when: client_exist.rc != 0
 
 - name: "[Enroll Client] - Get CLIENT shortname"
   set_fact:

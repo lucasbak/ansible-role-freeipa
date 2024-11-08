@@ -12,6 +12,9 @@ iptables: False
 ipaserver_setup_default_resolv: False
 freeipa_srv_nameserver_address: 127.0.0.1
 ipaserver_setup_disable_default_dns: False
+ipaserver_no_forwarders: False
+ipaserver_auto_reverse: False
+ipaserver_forwarders: False
 # *********** identities management ********
 manage_identities: True
 identities:
