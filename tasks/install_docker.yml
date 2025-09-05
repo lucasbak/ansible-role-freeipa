@@ -1,0 +1,43 @@
+# - name: "[Systemd] - Stop systemd-resolved service"
+#   service:
+#     name: systemd-resolved
+#     state: stopped
+#     enabled: no
+- name: "[Packages] - Install Docker"
+  package:
+    name: docker
+    state: present
+
+- name: "[Docker] - Ensure Docker service is running"
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: "[Docker] - Pull FreeIPA Docker image"
+  docker_image:
+    name: "{{ ipaserver_docker_image }}"
+    source: pull
+
+- name: "[Docker] - Configure userns-remap in docker.json"
+  copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "userns-remap": "default"
+      }
+    owner: root
+    group: root
+    mode: '0644'
+  register: copy
+
+- name: "[Docker] - Restart Docker if userns-remap config changed"
+  service:
+    name: docker
+    state: restarted
+  when: copy is changed
+
+- name: "[Packages] - Install krb5-libs for Kerberos utilities"
+  package:
+    name: krb5-user
+    state: present

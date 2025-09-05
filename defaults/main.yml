@@ -1,5 +1,10 @@
 # *********** default config directory for freeipa (not tested when changed) ********
 conf_dir: /etc/freeipa/conf
+ipaserver_install_mode: 'normal' # 'docker' or 'normal'
+ipaserver_docker_image: freeipa/freeipa-server:almalinux-9
+ipaserver_docker_data: /var/lib/ipa-data
+ipaserver_docker_container_name: ipaserver
+ipaadmin_user: admin
 # ansible_python_interpreter: /usr/bin/python
 
 # *********** directory on the remote host where certs should be available   ********

@@ -1,0 +1,29 @@
+---
+
+
+- name: Generate FreeIPA user name§
+  compute_name:
+    givenname: "{{ item.givenname }}"
+    sn: "{{ item.sn }}"
+  register: user_ipa_name
+
+- name: Check If user already exists in FreeIPA
+  shell: >
+    docker exec {{ ipaserver_docker_container_name }} bash -c "echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} && ipa user-find {{ user_ipa_name.username }}"
+  register: userexists
+  when: ipaserver_install_mode == 'docker'
+  ignore_errors: True
+
+- name: Ensure users are present in FreeIPA
+  community.general.ipa_user:
+    name: "{{ user_ipa_name.username }}"
+    givenname: "{{ item.givenname }}"
+    sn: "{{ item.sn }}"
+    state: present
+    loginshell: "{{ item.loginshell | default('/bin/bash') }}"
+    ipa_host: "{{ inventory_hostname }}"
+    ipa_user: "{{ ipaadmin_user }}"
+    ipa_pass: "{{ ipaadmin_password }}"
+    password: "{{ item.password | default(user123) }}"
+    validate_certs: no
+  when: userexists.rc != 0 or ipaserver_install_mode != 'docker'

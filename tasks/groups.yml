@@ -1,0 +1,20 @@
+---
+- name: Sync IPA group membership
+  ipa_group_membership:
+    cluster_groups: "{{ cluster_groups }}"
+    cluster_users: "{{ cluster_users }}"
+    ipa_host: "{{ inventory_hostname }}"
+    ipa_user: "{{ ipaadmin_user }}"
+    ipa_pass: "{{ ipaadmin_password }}"
+    validate_certs: false
+  register: ipa_group_result
+
+- name: Ensure IPA groups are up to date
+  community.general.ipa_group:
+    name: "{{ item.group }}"
+    user: "{{ item.users }}"
+    ipa_host: "{{ inventory_hostname }}"
+    ipa_user: "{{ ipaadmin_user }}"
+    ipa_pass: "{{ ipaadmin_password }}"
+    validate_certs: false
+  loop: "{{ ipa_group_result.ipa_group_tasks }}"

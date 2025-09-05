@@ -15,10 +15,16 @@
   when: iptables is defined and iptables and play is defined and play == 'server'
 
 - include_tasks: identities.yml
-  when: manage_identities is defined and manage_identities and play is defined and play == 'server'
+  when: manage_identities is defined and manage_identities and play is defined and play == 'server' and ipaserver_install_mode != 'docker'
+
+- include_tasks: install_docker.yml
+  when: ipaserver_install_mode == 'docker' and play is defined and play == 'server'
 
 - include_tasks: install.yml
+  when: (ipaserver_install_mode == 'normal' and play is defined and play == 'server') or play is defined and play == 'client'
 
+- include_tasks: layout.yml
+  when: play is defined and play != 'users'
 # first Master
 - include_tasks: setup.yml
   when:  inventory_hostname  == (groups['ipaserver'] | first) and play is defined and play == 'server'
@@ -32,4 +38,11 @@
   when: play is defined and play == 'client'
 
 
+# Client
+- include_tasks: users.yml
+  when: play is defined and play == 'users'
+  with_items: "{{ cluster_users }}"
+
+- include_tasks: groups.yml
+  when: play is defined and play == 'users'
 

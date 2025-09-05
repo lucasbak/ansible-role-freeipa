@@ -71,37 +71,3 @@
 #   when: play is defined and play == 'client'
 
 
-- name: "[Configure] - Freeipa conf dir"
-  file:
-    path: "{{conf_dir}}"
-    state: directory
-    mode: 0750
-
-
-# SSL Local File
-- name: "[Configure] - Copy cacert.pem"
-  copy:
-    remote_src: True
-    src: "{{ security_ssl_cacert_path }}"
-    dest: "{{ conf_dir }}/cacert.pem"
-  when: security_ssl_local
-
-- name: "[Configure] - Copy key.pem"
-  copy:
-    remote_src: True
-    src: "{{ security_ssl_cert_folder }}/{{inventory_hostname}}.key.pem"
-    dest: "{{ conf_dir }}/key.pem"
-  when: security_ssl_local
-
-# SSL Remote File
-- name: "[Configure] - Copy cacert.pem"
-  copy:
-    src: "{{ security_ssl_cacert_path }}"
-    dest: "{{ conf_dir }}/cacert.pem"
-  when: not security_ssl_local
-- name: Copy key.pem
-  copy:
-    src: "{{ security_ssl_cert_folder }}/{{inventory_hostname}}.key.pem"
-    dest: "{{ conf_dir }}/key.pem"
-  when: not security_ssl_local
-
