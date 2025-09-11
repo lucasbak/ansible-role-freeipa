@@ -23,11 +23,11 @@
 # -p 53:53/udp -p 53:53
 - block:
   - name: "docker-setup: Execute setup command"
-    when: ipaserver_container_exists.rc == 1 and ipaserver_install_mode == 'docker'
+    when: ipaserver_container_exists.rc is defined and ipaserver_container_exists.rc == 1 and ipaserver_install_mode == 'docker'
     shell: >
       docker run \
       -v {{ ipaserver_docker_data }}:/data:Z -v /etc/freeipa/conf:/etc/freeipa/conf --name {{ ipaserver_docker_container_name }} \
-      -h {{ inventory_hostname }} --restart \
+      -h {{ inventory_hostname }} --restart=always \
       -p 80:80 -p 443:443 -p 389:389 -p 636:636 -p 88:88 -p 464:464 \
       -p 88:88/udp -p 464:464/udp -p 123:123/udp \
       {{ ipaserver_docker_image }} ipa-server-install -U \
@@ -60,7 +60,7 @@
 
 - block:
   - name: Execute setup command
-    when: freeipa_exist is defined and freeipa_exist.rc
+    when: freeipa_exist is defined and freeipa_exist.rc and ipaserver_install_mode != 'docker'
     shell: >
       ipa-server-install -U \
       -a '{{ipaadmin_password}}' -p '{{ipamanager_password}}' --hostname '{{inventory_hostname}}' \

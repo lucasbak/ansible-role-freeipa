@@ -68,10 +68,14 @@
 - name: "[Enroll Client] - Check CLIENT not setup"
   shell: >
     docker exec {{ ipaserver_docker_container_name }} bash -c "echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} && ipa host-find '{{inventory_hostname }}'"
-  register: client_exist
+  register: client_exist_docker
   delegate_to: "{{ groups['ipaserver'] | first }}"
   when: ipaserver_install_mode == 'docker' and play is defined and play == 'client'
   ignore_errors: True
+
+- name: "[Enroll Client] - Check CLIENT not setup"
+  set_fact:
+    client_exist: "{{ client_exist_docker if ipaserver_install_mode == 'docker' else client_exist }}"
 
 - name: "[Enroll Client] - Execute CLIENT setup command"
   shell: >

@@ -35,3 +35,4 @@
     - "{{ identities }}"
   loop_control:
     loop_var: in_item
+  ignore_errors: yes

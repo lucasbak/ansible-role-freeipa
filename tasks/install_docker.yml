@@ -3,10 +3,68 @@
 #     name: systemd-resolved
 #     state: stopped
 #     enabled: no
-- name: "[Packages] - Install Docker"
-  package:
-    name: docker
+
+
+
+- set_fact:
+  # Map Ansible architectures to Debian/Ubuntu arch labels used by Docker repo
+    docker_apt_arch: >-
+      {{ (ansible_architecture | lower)
+          | replace('x86_64','amd64')
+          | replace('aarch64','arm64')
+          | replace('armv7l','armhf')
+          | replace('ppc64le','ppc64el') }}
+
+
+- name: Update apt cache (initial)
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install prerequisites
+  apt:
+    name:
+      - ca-certificates
+      - curl
     state: present
+
+- name: Ensure keyring directory exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Docker GPG key
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+    force: yes
+
+- name: Add Docker apt repository
+  apt_repository:
+    repo: >-
+      deb [arch={{ docker_apt_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu {{ ansible_facts.lsb.codename | default('focal') }} stable
+    filename: docker
+    state: present
+    update_cache: yes
+
+- name: Install Docker Engine and plugins
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+
+
+# - name: "[Packages] - Install Docker"
+#   package:
+#     name: docker
+#     state: present
 
 - name: "[Docker] - Ensure Docker service is running"
   service:
