@@ -1,9 +1,9 @@
 # Yum Packages
 
 - name: "[Packages] - Enable FreeIpa Packages [redhat8]"
-  dnf:
-    name: "@idm:DL1"
-    state: present
+  raw: |
+    set -e
+    dnf install -y @idm:DL1
   when: ansible_distribution_major_version == '8' and ansible_distribution != "Ubuntu"
 
 - name: "[Packages] - Install freeipa-server [redhat7]"
@@ -17,7 +17,13 @@
     - ipa-client
   when: play is defined and play == 'server' and ansible_distribution == "CentOS" or ansible_distribution == "RedHat" and ansible_distribution_major_version < '8'
 
-- name: "[Packages] - Install freeipa-server [redhat8/9]"
+- name: "[Packages] - Install freeipa-server [redhat8]"
+  raw: |
+    set -e
+    dnf install -y freeipa-server ipa-server-dns ipa-client
+  when: ansible_distribution_major_version == '8' and ansible_distribution != "Ubuntu" and play == 'server'
+
+- name: "[Packages] - Install freeipa-server [redhat9+]"
   package:
     state: present
     name: "{{item}}"
@@ -26,7 +32,7 @@
     - freeipa-server 
     - ipa-server-dns
     - ipa-client
-  when: ansible_distribution_major_version >= '8' and ansible_distribution != "Ubuntu" and play == 'server'
+  when: ansible_distribution_major_version > '8' and ansible_distribution != "Ubuntu" and play == 'server'
 
 - name: "[Packages] - Install freeipa-client [redhat7]"
   package:
@@ -37,14 +43,22 @@
     - ipa-client
   when: (ansible_distribution == "CentOS" or ansible_distribution == "RedHat") and ansible_distribution_major_version < '8'
 
-- name: "[Packages] - Install freeipa-client [redhat8/9]"
+
+- name: "[Packages] - Install freeipa-server [redhat8]"
+  raw: |
+    set -e
+    dnf install -y freeipa-server ipa-server-dns ipa-client
+  when: ansible_distribution_major_version == '8' and ansible_distribution != "Ubuntu" and play == 'server'
+
+
+- name: "[Packages] - Install freeipa-client [redhat9+]"
   package:
     state: present
     name: "{{item}}"
     use: dnf
   with_items: 
     - ipa-client
-  when: ansible_distribution_major_version >= '8' and ansible_distribution != "Ubuntu"
+  when: ansible_distribution_major_version > '8' and ansible_distribution != "Ubuntu"
 
 - name: "[Packages] - Install Free Ipa Client"
   package:

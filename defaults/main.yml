@@ -115,6 +115,7 @@ identities:
       home: /usr/share/dirsrv
       shell: False
 # by default use all service below
+upstream_dns: 8.8.8.8
 services:
   - LDAP
   - KERBEROS

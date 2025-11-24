@@ -22,29 +22,131 @@
 
 # -p 53:53/udp -p 53:53
 - block:
-  - name: "docker-setup: Execute setup command"
-    when: ipaserver_container_exists.rc is defined and ipaserver_container_exists.rc == 1 and ipaserver_install_mode == 'docker'
+  - name: "docker-setup: Disable systemd-resolved DNSStubListener"
+    lineinfile:
+      path: /etc/systemd/resolved.conf
+      regexp: '^#?DNSStubListener='
+      line: 'DNSStubListener=no'
+    register: resolved_conf
+    when: ipaserver_install_mode == 'docker'
+
+  - name: "docker-setup: Update host resolv.conf to use upstream (break loop)"
+    copy:
+      dest: /etc/resolv.conf
+      content: |
+        nameserver {{ upstream_dns }}
+        options edns0 trust-ad
+    when: resolved_conf.changed and ipaserver_install_mode == 'docker'
+
+  - name: "docker-setup: Restart systemd-resolved"
+    service:
+      name: systemd-resolved
+      state: restarted
+    when: resolved_conf.changed and ipaserver_install_mode == 'docker'
+
+  - name: "docker-setup: Execute setup command [server not existing]"
+    when: ipaserver_container_exists.rc == 1 and ipaserver_install_mode == 'docker'
     shell: >
-      docker run \
+      docker run -d \
       -v {{ ipaserver_docker_data }}:/data:Z -v /etc/freeipa/conf:/etc/freeipa/conf --name {{ ipaserver_docker_container_name }} \
-      -h {{ inventory_hostname }} --restart=always \
+      -h {{ inventory_hostname }} \
+      -p 53:53/udp -p 53:53/tcp \
       -p 80:80 -p 443:443 -p 389:389 -p 636:636 -p 88:88 -p 464:464 \
       -p 88:88/udp -p 464:464/udp -p 123:123/udp \
       {{ ipaserver_docker_image }} ipa-server-install -U \
-      -a '{{ipaadmin_password}}' -p '{{ipamanager_password}}' --hostname '{{inventory_hostname}}' \
+      -a '{{ipaadmin_password}}' -p '{{ipamanager_password}}' \
       --domain '{{ipaserver_domain}}' \
       {% if idstart is defined %} --idstart={{idstart}} \ {% endif %}
       {% if idmax is defined %} --idmax={{idmax}} \ {% endif %}
       -r '{{ipaserver_realm}}' \
-      {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --setup-dns {% endif %} 
-      {% if ipaserver_auto_reverse is defined and ipaserver_auto_reverse%} --auto-reverse  {% endif %}
-      {% if ipaserver_no_forwarders is defined and ipaserver_no_forwarders%} --no-forwarders {% endif %}
-      {% if ipaserver_forwarders %} --auto-forwarders {% endif %}
-      {% if ipaserver_allow_overlap is defined and ipaserver_allow_overlap %} --allow-zone-overlap {% endif %}
       {% if not services['NTP'] is defined %} --no-ntp \ {% endif %}
-      {% if ipaserver_reverse_zone is defined %}--reverse-zone={{ipaserver_reverse_zone}}{% endif %}
       {% if security_ssl_external_ca is defined and security_ssl_external_ca %} --external-ca --ca-subject="{{ca_subject}}"
       {% else %} --ca-cert-file={{ conf_dir }}/cacert.pem {% endif %}
+  
+
+  - name: "docker-setup: Wait for Kinit to success"
+    community.docker.docker_container_exec:
+      container: "{{ ipaserver_docker_container_name }}"
+      command: "ipactl status"
+    register: dns_check
+    ignore_errors: true
+    until: dns_check.rc == 0
+    retries: 120
+    delay: 5
+    changed_when: false
+    when: ipaserver_install_mode == 'docker'
+
+  - name: "docker-setup: Enable restart"
+    when: ipaserver_install_mode == 'docker'
+    shell: >
+      docker update --restart unless-stopped {{ ipaserver_docker_container_name }}
+    when: ipaserver_install_mode == 'docker'
+
+  - name: "docker-setup:Check if DNS is already configured"
+    shell: >
+      docker exec {{ ipaserver_docker_container_name }} bash -c "echo '{{ ipaadmin_password }}' | kinit admin@{{ipaserver_realm}} ; ipa dnszone-find {{ ipaserver_domain }}"
+    register: dns_check
+    ignore_errors: true
+    when: ipaserver_install_mode == 'docker'
+
+  - name: "docker-setup: Run ipa-dns-install inside container (if missing)"
+    community.docker.docker_container_exec:
+      container: "{{ ipaserver_docker_container_name }}"
+      command: "ipa-dns-install --forwarder={{ upstream_dns }} --auto-reverse --no-dnssec-validation -U"
+    when: dns_check.failed and ipaserver_install_mode == 'docker'
+
+  - name: "docker-setup: Stage DNS configuration on host"
+    copy:
+      dest: "/{{ ipaserver_docker_data }}/etc/named/ipa-options-ext.conf"
+      content: |
+        allow-recursion { any; };
+        allow-query-cache { any; };
+      mode: '0644'
+    register: dns_config_file
+    when: ipaserver_install_mode == 'docker'
+
+  
+  - name: "docker-setup: Restart named service inside container to apply config"
+    community.docker.docker_container_exec:
+      container: "{{ ipaserver_docker_container_name }}"
+      command: "systemctl restart named"
+    when: ipaserver_install_mode == 'docker'
+
+
+  - name: Set ipaclient shortname from first entry in ipaclient_servers
+    set_fact:
+      ipaclient_shortname: "{{ (ipaclient_servers | first).split('.')[0] }}"
+    when: ipaclient_servers is defined and ipaclient_servers | length > 0
+
+  - name: "docker-setup: Correct the DNS record for the IPA server ({{ipaclient_shortname}})"
+    community.docker.docker_container_exec:
+      container: "{{ ipaserver_docker_container_name }}"
+      # 1. Login
+      # 2. Delete the auto-created Docker IP record (172...)
+      # 3. Add the External Host IP record (192...)
+      command: >
+        /bin/bash -c "echo '{{ ipaadmin_password }}' | kinit admin && 
+        ipa dnsrecord-del {{ ipaserver_domain }} {{ipaclient_shortname}} --a-rec=$(dig +short {{ipaclient_shortname}}.{{ ipaserver_domain }} @localhost) || true &&
+        ipa dnsrecord-add {{ ipaserver_domain }} {{ipaclient_shortname}} --a-rec={{ ipaserver_setup_nameserver_resolv }}"
+    ignore_errors: true
+
+  - name: "docker-setup - [DNS] - Create Reverse Zone (192.168.1.x)"
+    when: ipaserver_install_mode == 'docker'
+    community.docker.docker_container_exec:
+      container: "{{ ipaserver_docker_container_name }}"
+      # This command tries to find the zone, if it fails (||), it creates it.
+      # We hardcode '{{reverse_zone}}.in-addr.arpa' based on your previous logs.
+      command: >
+        /bin/bash -c "echo '{{ ipaadmin_password }}' | kinit admin && 
+        ipa dnszone-find {{reverse_zone}}.in-addr.arpa || 
+        ipa dnszone-add {{reverse_zone}}.in-addr.arpa --skip-nameserver-check --allow-sync-ptr=true"
+    register: reverse_zone_setup
+    ignore_errors: true
+  # - name: Configure DNS resolver inside container to use host as forwarder
+  #   when: ipaserver_install_mode == 'docker'
+  #   shell: >
+  #     docker exec {{ ipaserver_docker_container_name }} bash -c "echo 'ipa-dns-install --forwarder=8.8.8.8 --auto-reverse"
+  # - name: "docker-setup - [DNS] - Setup Revers DNS Zone - derive reverse zone"
 
   # - name: "docker-setup - [DNS] - Setup Revers DNS Zone - check existence"
   #   when: ipaserver_install_mode == 'docker'
