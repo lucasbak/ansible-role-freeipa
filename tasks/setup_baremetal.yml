@@ -1,0 +1,69 @@
+- name: Check Installation already exist
+  shell: test -f /etc/ipa/default.conf
+  register: freeipa_exist
+  ignore_errors: True
+  when: ipaserver_install_mode == 'normal'
+
+- name: Execute setup command
+  when: freeipa_exist is defined and freeipa_exist.rc and ipaserver_install_mode != 'docker'
+  shell: >
+    ipa-server-install -U \
+    -a '{{ipaadmin_password}}' -p '{{ipamanager_password}}' --hostname '{{inventory_hostname}}' \
+    --domain '{{ipaserver_domain}}' \
+    --ip-address {{ansible_ssh_host}} \
+    {% if idstart is defined %} --idstart={{idstart}} \ {% endif %}
+    {% if idmax is defined %} --idmax={{idmax}} \ {% endif %}
+    -r '{{ipaserver_realm}}' \
+    {% if ipaserver_setup_dns is defined and ipaserver_setup_dns %} --setup-dns {% endif %} 
+    {% if ipaserver_auto_reverse is defined and ipaserver_auto_reverse%} --auto-reverse  {% endif %}
+    {% if ipaserver_no_forwarders is defined and ipaserver_no_forwarders%} --no-forwarders {% endif %}
+    {% if ipaserver_forwarders %} --auto-forwarders {% endif %}
+    {% if ipaserver_allow_overlap is defined and ipaserver_allow_overlap %} --allow-zone-overlap {% endif %}
+    
+    {% if not services['NTP'] is defined %} --no-ntp \ {% endif %}
+    {% if security_ssl_external_ca is defined and security_ssl_external_ca %} --external-ca --ca-subject="{{ca_subject}}"
+    {% else %} --ca-cert-file={{ conf_dir }}/cacert.pem {% endif %}
+
+- name: "[DNS] - Setup Revers DNS Zone - check existence"
+  when: ipaserver_install_mode == 'normal'
+  shell: >
+    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnszone-find {{reverse_zone}}.in-addr.arpa.
+  register: dnsexists
+  ignore_errors: True
+
+- name: "[DNS] - Setup Revers DNS Zone - execute"
+  when: ((dnsexists.rc is defined) and (dnsexists.rc == 1)) and (ipaserver_auto_reverse is defined and ipaserver_auto_reverse) and (ipaserver_setup_dns is defined and ipaserver_setup_dns)
+  shell: >
+    echo '{{ipaadmin_password}}' | kinit admin@{{ipaserver_realm}} ; ipa dnszone-add {{reverse_zone}}.in-addr.arpa.
+
+- name: "[DNS] - Find files with 'ipa' in name"
+  find:
+    paths: /etc/NetworkManager/conf.d
+    patterns: "*ipa*"
+  register: ipa_files
+  when: ipaserver_install_mode == 'normal'
+
+- name: "[DNS] - Override FreeIPA NetworkManager Conf"
+  copy:
+    dest: "{{item.path}}"
+    content: |
+      [main]
+      dns=default
+
+      [global-dns]
+      searches={{ipaserver_domain}}
+
+      [global-dns-domain-*]
+      servers=127.0.0.1,{{freeipa_srv_nameserver_address}}
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ ipa_files.files }}"
+  when: ansible_distribution != "Ubuntu" and ipaserver_setup_default_resolv and "{{freeipa_srv_nameserver_address}}" != "127.0.0.1"
+
+- name: "[DNS] - Reload NetworkManager service"
+  systemd:
+    name: NetworkManager
+    state: reloaded
+  when: ansible_distribution != "Ubuntu" and ipaserver_setup_default_resolv
+

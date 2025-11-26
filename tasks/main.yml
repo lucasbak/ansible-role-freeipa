@@ -26,12 +26,16 @@
 - include_tasks: layout.yml
   when: play is defined and play != 'users'
 # first Master
-- include_tasks: setup.yml
-  when:  inventory_hostname  == (groups['ipaserver'] | first) and play is defined and play == 'server'
+- include_tasks: setup_docker.yml
+  when:  inventory_hostname  == (groups['ipaserver'] | first) and play is defined and play == 'server' and ipaserver_install_mode == 'docker'
+
+- include_tasks: setup_baremetal.yml
+  when:  inventory_hostname  == (groups['ipaserver'] | first) and play is defined and play == 'server' and ipaserver_install_mode == 'normal'
+
 
 # Replica Master
 - include_tasks: replication.yml
-  when:  inventory_hostname  != (groups['ipaserver'] | first) and play is defined and play == 'server'
+  when:  inventory_hostname  != (groups['ipaserver'] | first) and play is defined and play == 'server' and ipaserver_install_mode == 'normal'
 
 # Client
 - include_tasks: enroll_client.yml
