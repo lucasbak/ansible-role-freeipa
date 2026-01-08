@@ -36,6 +36,10 @@
   when: resolved_conf.changed
 
 - name: "docker-setup: Execute setup command [server not existing]"
+  retries: 15
+  delay: 10
+  register: docker_run_command
+  until: docker_run_command.rc == 0
   when: ipaserver_container_exists.rc == 1
   shell: >
     docker run -d \

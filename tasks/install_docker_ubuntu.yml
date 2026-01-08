@@ -1,0 +1,88 @@
+# - name: "[Systemd] - Stop systemd-resolved service"
+#   service:
+#     name: systemd-resolved
+#     state: stopped
+#     enabled: no
+
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+    update_cache: true
+
+- name: Ensure /etc/apt/keyrings exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker’s official GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: true
+
+- name: Determine dpkg architecture
+  ansible.builtin.set_fact:
+    dpkg_arch: >-
+      {{ 'amd64' if ansible_architecture == 'x86_64'
+         else 'arm64' if ansible_architecture in ['aarch64', 'arm64']
+         else 'armhf' if ansible_architecture in ['armv7l', 'armv7']
+         else ansible_architecture }}
+
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ dpkg_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu
+      {{ ansible_distribution_release }} stable
+    filename: docker
+    state: present
+    update_cache: true
+
+- name: Update apt cache (mirrors final apt-get update)
+  ansible.builtin.package:
+    state: present
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+
+- name: "[Docker] - Ensure Docker service is running"
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: "[Docker] - Pull FreeIPA Docker image"
+  docker_image:
+    name: "{{ ipaserver_docker_image }}"
+    source: pull
+
+- name: "[Docker] - Configure userns-remap in docker.json"
+  copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "userns-remap": "default"
+      }
+    owner: root
+    group: root
+    mode: '0644'
+  register: copy
+
+- name: "[Docker] - Restart Docker if userns-remap config changed"
+  service:
+    name: docker
+    state: restarted
+  when: copy is changed
+
+- name: "[Packages] - Install krb5-libs for Kerberos utilities"
+  package:
+    name: krb5-user
+    state: present
